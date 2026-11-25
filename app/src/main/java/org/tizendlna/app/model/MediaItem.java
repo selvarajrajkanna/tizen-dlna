@@ -54,8 +54,12 @@ public final class MediaItem {
     }
 
     public static MediaItem fromFile(File file) {
+        return fromFile(file, null);
+    }
+
+    public static MediaItem fromFile(File file, File[] directorySiblings) {
         boolean audio = isAudioFile(file.getName());
-        File sub = audio ? null : findMatchingSubtitle(file);
+        File sub = audio ? null : findMatchingSubtitle(file, directorySiblings);
         String subType = sub != null ? subtitleTypeOf(sub) : "";
         File parent = file.getParentFile();
         String folder = parent != null ? parent.getName() : "Storage";
@@ -116,17 +120,23 @@ public final class MediaItem {
      * 3. Any language-tagged match (Movie.<lang>.srt)
      */
     public static File findMatchingSubtitle(File videoFile) {
+        return findMatchingSubtitle(videoFile, null);
+    }
+
+    public static File findMatchingSubtitle(File videoFile, File[] cachedSiblings) {
         if (videoFile == null) return null;
-        File dir = videoFile.getParentFile();
-        if (dir == null || !dir.isDirectory()) return null;
+        File[] files = cachedSiblings;
+        if (files == null) {
+            File dir = videoFile.getParentFile();
+            if (dir == null || !dir.isDirectory()) return null;
+            files = dir.listFiles();
+        }
+        if (files == null || files.length == 0) return null;
 
         String name = videoFile.getName();
         int dot = name.lastIndexOf('.');
         String base = (dot > 0) ? name.substring(0, dot) : name;
         String baseLower = base.toLowerCase(Locale.ROOT);
-
-        File[] files = dir.listFiles();
-        if (files == null || files.length == 0) return null;
 
         File bestExact = null;
         int bestExactRank = Integer.MAX_VALUE;

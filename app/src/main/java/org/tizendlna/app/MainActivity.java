@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Pure Android 16 Material You native File Manager & Samsung Tizen DLNA Push Controller.
@@ -83,6 +84,7 @@ public final class MainActivity extends Activity {
 
     private File storageRoot;
     private File currentDir;
+    private final AtomicInteger dirLoadGen = new AtomicInteger(0);
     private final List<FileEntry> entries = new ArrayList<>();
     private FileAdapter fileAdapter;
 
@@ -483,48 +485,58 @@ public final class MainActivity extends Activity {
             btnUpDir.setAlpha(1.0f);
         }
 
-        File[] raw = dir.listFiles();
-        List<FileEntry> dirs = new ArrayList<>();
-        List<FileEntry> playable = new ArrayList<>();
-        List<FileEntry> others = new ArrayList<>();
+        final int gen = dirLoadGen.incrementAndGet();
+        final boolean hasAccess = hasStorageAccess();
+        bgExecutor.execute(() -> {
+            File[] raw = dir.listFiles();
+            List<FileEntry> dirs = new ArrayList<>();
+            List<FileEntry> playable = new ArrayList<>();
+            List<FileEntry> others = new ArrayList<>();
 
-        if (raw != null) {
-            for (File f : raw) {
-                if (f.getName().startsWith(".")) continue;
-                if (f.isDirectory()) {
-                    dirs.add(new FileEntry(f, true, null));
-                } else if (f.isFile()) {
-                    if (MediaItem.isPlayableMedia(f)) {
-                        playable.add(new FileEntry(f, false, MediaItem.fromFile(f)));
-                    } else {
-                        others.add(new FileEntry(f, false, null));
+            if (raw != null) {
+                for (File f : raw) {
+                    if (f.getName().startsWith(".")) continue;
+                    if (f.isDirectory()) {
+                        dirs.add(new FileEntry(f, true, null));
+                    } else if (f.isFile()) {
+                        if (MediaItem.isPlayableMedia(f)) {
+                            playable.add(new FileEntry(f, false, MediaItem.fromFile(f, raw)));
+                        } else {
+                            others.add(new FileEntry(f, false, null));
+                        }
                     }
                 }
             }
-        }
 
-        Comparator<FileEntry> byName = Comparator.comparing(e -> e.file.getName().toLowerCase(Locale.ROOT));
-        dirs.sort(byName);
-        playable.sort(byName);
-        others.sort(byName);
+            Comparator<FileEntry> byName = Comparator.comparing(e -> e.file.getName().toLowerCase(Locale.ROOT));
+            dirs.sort(byName);
+            playable.sort(byName);
+            others.sort(byName);
 
-        entries.clear();
-        entries.addAll(dirs);
-        entries.addAll(playable);
-        entries.addAll(others);
-        fileAdapter.notifyDataSetChanged();
-        fileList.setSelection(0);
+            List<FileEntry> combined = new ArrayList<>(dirs.size() + playable.size() + others.size());
+            combined.addAll(dirs);
+            combined.addAll(playable);
+            combined.addAll(others);
 
-        if (entries.isEmpty()) {
-            tvEmpty.setText(hasStorageAccess()
-                    ? "This folder is empty."
-                    : "Grant storage access above to browse folders.");
-            tvEmpty.setVisibility(View.VISIBLE);
-        } else {
-            tvEmpty.setVisibility(View.GONE);
-        }
+            mainHandler.post(() -> {
+                if (gen != dirLoadGen.get() || isDestroyed() || isFinishing()) return;
+                entries.clear();
+                entries.addAll(combined);
+                fileAdapter.notifyDataSetChanged();
+                fileList.setSelection(0);
 
-        syncCurrentFolderToDms();
+                if (entries.isEmpty()) {
+                    tvEmpty.setText(hasAccess
+                            ? "This folder is empty."
+                            : "Grant storage access above to browse folders.");
+                    tvEmpty.setVisibility(View.VISIBLE);
+                } else {
+                    tvEmpty.setVisibility(View.GONE);
+                }
+
+                syncCurrentFolderToDms();
+            });
+        });
     }
 
     private void syncCurrentFolderToDms() {

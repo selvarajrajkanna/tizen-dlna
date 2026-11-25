@@ -177,23 +177,33 @@ public final class DlnaServerService extends Service {
     }
 
     private void startServerInternal() {
-        acquireLocks();
-        String ip = NetworkUtils.getLocalWifiIpv4(this);
-        if (ip != null) dlnaServer.setHostIp(ip);
-        dlnaServer.setFriendlyName(Build.MODEL + " (TizenDLNA)");
         try {
-            dlnaServer.start();
-            ssdpAdvertiser = new SsdpAdvertiser(dlnaServer);
-            ssdpAdvertiser.start();
             startForeground(
                     NOTIFICATION_ID,
                     buildNotification(),
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
             );
-            notifyStateChanged(true);
         } catch (Exception e) {
-            Log.e(TAG, "Failed to start DLNA server", e);
+            Log.e(TAG, "Failed to enter foreground", e);
         }
+        acquireLocks();
+        Thread t = new Thread(() -> {
+            String ip = NetworkUtils.getLocalWifiIpv4(this);
+            if (ip != null) dlnaServer.setHostIp(ip);
+            dlnaServer.setFriendlyName(Build.MODEL + " (TizenDLNA)");
+            try {
+                dlnaServer.start();
+                ssdpAdvertiser = new SsdpAdvertiser(dlnaServer);
+                ssdpAdvertiser.start();
+                refreshNotification();
+                notifyStateChanged(true);
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to start DLNA server", e);
+                notifyStateChanged(false);
+            }
+        }, "dlna-boot");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void stopServerInternal() {

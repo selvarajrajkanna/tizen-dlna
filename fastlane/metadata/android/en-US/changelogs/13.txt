@@ -1,0 +1,2 @@
+- Fix startup splash screen hang by moving directory listing, subtitle matching, and DLNA server socket startup off the main UI thread
+- Eliminate O(N^2) directory scans when opening large folders
