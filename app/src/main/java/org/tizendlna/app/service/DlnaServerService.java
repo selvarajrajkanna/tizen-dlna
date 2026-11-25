@@ -200,7 +200,7 @@ public final class DlnaServerService extends Service {
                 this, 1, stopIntent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
         return new Notification.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_launcher)
+                .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("TizenDLNA")
                 .setContentText(text)
                 .setContentIntent(openPi)
