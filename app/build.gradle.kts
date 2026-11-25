@@ -10,12 +10,24 @@ android {
         applicationId = "org.tizendlna.app"
         minSdk = 36
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.1.1"
+        versionCode = 8
+        versionName = "1.1.2"
 
         // Strictly 64-bit ARM64 (Snapdragon 7+ Gen 3 / ARMv9-A Cortex-X4/A720/A520)
         ndk {
             abiFilters += "arm64-v8a"
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            val ksPath = System.getenv("KEYSTORE_FILE")
+            if (!ksPath.isNullOrBlank()) {
+                storeFile = file(ksPath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
         }
     }
 
@@ -27,8 +39,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Sign with debug key if no release keystore is provided in CI
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (!System.getenv("KEYSTORE_FILE").isNullOrBlank()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
         debug {
             isMinifyEnabled = false
