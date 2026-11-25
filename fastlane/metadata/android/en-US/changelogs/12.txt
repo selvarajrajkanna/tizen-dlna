@@ -1,0 +1,2 @@
+- F-Droid readiness: MIT license, pinned Gradle 8.13 wrapper properties, Fastlane store metadata, and immutable Git tags
+- Preserve current folder, selected TV, and Now Playing state across rotation and app restarts

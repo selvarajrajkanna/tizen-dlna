@@ -1,0 +1,9 @@
+TizenDLNA is a lightweight, zero-dependency, native Android DLNA Media Server and push controller designed specifically for Samsung Tizen TVs.
+
+Features:
+- Built-in Material You File Manager: browse internal storage directly with no background media scanning. Only folders, video, and audio files are selectable.
+- Full Samsung Tizen DLNA subtitle support: automatically detects matching subtitles (.srt, .smi, .vtt, .ass, .ssa, .sub) in the same directory and sends Samsung CaptionInfo.sec and sec:CaptionInfoEx metadata with UTF-8 normalization.
+- Push to TV & DMS browsing: tap any video or audio file to play on your Samsung TV with Play/Pause, seek, stop, and TV volume controls, or browse your phone from the TV's Connected Devices menu.
+- Share / Open With: cast directly from any file manager or gallery app.
+- Notification controls & clean shutdown: Play/Pause and Stop Server directly from the notification shade, plus dedicated Stop Server and Quit controls.
+- High-efficiency streaming: zero-copy kernel file transfer (sendfile64), 256 KB TCP buffers, live Wi-Fi IP tracking, and 64-bit ARM64 Vulkan HWUI rendering.

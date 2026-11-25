@@ -7,6 +7,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
@@ -57,6 +58,12 @@ import java.util.concurrent.Executors;
  */
 public final class MainActivity extends Activity {
     private static final int REQ_PERMISSIONS = 101;
+    private static final String PREFS_NAME = "tizendlna_prefs";
+    private static final String KEY_LAST_DIR = "last_dir";
+    private static final String KEY_LAST_TV_UDN = "last_tv_udn";
+
+    private SharedPreferences prefs;
+    private String preferredTvUdn;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService bgExecutor = Executors.newFixedThreadPool(3, r -> {
@@ -196,8 +203,15 @@ public final class MainActivity extends Activity {
             return insets;
         });
 
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        preferredTvUdn = prefs.getString(KEY_LAST_TV_UDN, null);
+
         storageRoot = Environment.getExternalStorageDirectory();
-        currentDir = storageRoot;
+        String savedPath = (savedInstanceState != null)
+                ? savedInstanceState.getString(KEY_LAST_DIR)
+                : prefs.getString(KEY_LAST_DIR, null);
+        File restoredDir = (savedPath != null) ? new File(savedPath) : null;
+        currentDir = (restoredDir != null && restoredDir.isDirectory()) ? restoredDir : storageRoot;
 
         tvServerStatus = findViewById(R.id.tv_server_status);
         btnToggleServer = findViewById(R.id.btn_toggle_server);
@@ -288,6 +302,14 @@ public final class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleIncomingIntent(intent);
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (currentDir != null) {
+            outState.putString(KEY_LAST_DIR, currentDir.getAbsolutePath());
+        }
     }
 
     @Override
@@ -444,6 +466,9 @@ public final class MainActivity extends Activity {
     private void openDirectory(File dir) {
         if (dir == null || !dir.isDirectory()) return;
         currentDir = dir;
+        if (prefs != null) {
+            prefs.edit().putString(KEY_LAST_DIR, dir.getAbsolutePath()).apply();
+        }
 
         String rootPath = storageRoot.getAbsolutePath();
         String curPath = dir.getAbsolutePath();
@@ -523,7 +548,8 @@ public final class MainActivity extends Activity {
                     tvSelectedTv.setText("No TV found — tap Scan TV");
                 } else {
                     if (selectedTv == null || !containsTv(discoveredTvs, selectedTv.udn)) {
-                        selectedTv = discoveredTvs.get(0);
+                        TvDevice preferred = findTvByUdn(discoveredTvs, preferredTvUdn);
+                        selectedTv = (preferred != null) ? preferred : discoveredTvs.get(0);
                     }
                     tvSelectedTv.setText(selectedTv.displayLabel()
                             + (discoveredTvs.size() > 1 ? "  ▾" : ""));
@@ -609,10 +635,15 @@ public final class MainActivity extends Activity {
     }
 
     private static boolean containsTv(List<TvDevice> list, String udn) {
+        return findTvByUdn(list, udn) != null;
+    }
+
+    private static TvDevice findTvByUdn(List<TvDevice> list, String udn) {
+        if (udn == null) return null;
         for (TvDevice d : list) {
-            if (d.udn.equals(udn)) return true;
+            if (d.udn.equals(udn)) return d;
         }
-        return false;
+        return null;
     }
 
     private void showTvPicker() {
@@ -629,6 +660,10 @@ public final class MainActivity extends Activity {
                 .setTitle("Select TV")
                 .setItems(names, (dialog, which) -> {
                     selectedTv = discoveredTvs.get(which);
+                    preferredTvUdn = selectedTv.udn;
+                    if (prefs != null) {
+                        prefs.edit().putString(KEY_LAST_TV_UDN, preferredTvUdn).apply();
+                    }
                     currentVolume = -1;
                     tvSelectedTv.setText(selectedTv.displayLabel()
                             + (discoveredTvs.size() > 1 ? "  ▾" : ""));

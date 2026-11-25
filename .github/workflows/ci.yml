@@ -116,13 +116,13 @@ jobs:
             dist/*.apk
             dist/*.sha256
 
-      - name: Prune old releases (keep latest 5)
+      - name: Prune old releases (keep latest 5, preserve tags for F-Droid)
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           OLD_TAGS=$(gh release list --limit 100 --json tagName,createdAt --jq 'sort_by(.createdAt) | reverse | .[5:] | .[].tagName')
           for tag in $OLD_TAGS; do
-            echo "Deleting old release and tag: $tag"
-            gh release delete "$tag" --yes --cleanup-tag || true
+            echo "Deleting old release (keeping git tag): $tag"
+            gh release delete "$tag" --yes || true
           done
