@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Android 16 Native Material You Dynamic Palette (Light) -->
-    <color name="m3_bg">@android:color/system_background_light</color>
-    <color name="m3_surface_container">@android:color/system_surface_container_light</color>
-    <color name="m3_surface_container_high">@android:color/system_surface_container_high_light</color>
-    <color name="m3_on_surface">@android:color/system_on_surface_light</color>
-    <color name="m3_on_surface_variant">@android:color/system_on_surface_variant_light</color>
-    <color name="m3_primary">@android:color/system_primary_light</color>
-    <color name="m3_on_primary">@android:color/system_on_primary_light</color>
-    <color name="m3_primary_container">@android:color/system_primary_container_light</color>
-    <color name="m3_on_primary_container">@android:color/system_on_primary_container_light</color>
-    <color name="m3_secondary_container">@android:color/system_secondary_container_light</color>
-    <color name="m3_on_secondary_container">@android:color/system_on_secondary_container_light</color>
-    <color name="m3_tertiary_container">@android:color/system_tertiary_container_light</color>
-    <color name="m3_on_tertiary_container">@android:color/system_on_tertiary_container_light</color>
-    <color name="m3_error_container">@android:color/system_error_container_light</color>
-    <color name="m3_on_error_container">@android:color/system_on_error_container_light</color>
-    <color name="m3_outline_variant">@android:color/system_outline_variant_light</color>
+    <!-- Material 3 Light Palette fallback for Android 10-13 (API 29-33) -->
+    <color name="m3_bg">#F8F9FD</color>
+    <color name="m3_surface_container">#ECEFF7</color>
+    <color name="m3_surface_container_high">#E3E8F4</color>
+    <color name="m3_on_surface">#191C22</color>
+    <color name="m3_on_surface_variant">#454C59</color>
+    <color name="m3_primary">#2556C9</color>
+    <color name="m3_on_primary">#FFFFFF</color>
+    <color name="m3_primary_container">#D9E3FF</color>
+    <color name="m3_on_primary_container">#001947</color>
+    <color name="m3_secondary_container">#DCE3F2</color>
+    <color name="m3_on_secondary_container">#172030</color>
+    <color name="m3_tertiary_container">#C7F5DF</color>
+    <color name="m3_on_tertiary_container">#002114</color>
+    <color name="m3_error_container">#FFDAD6</color>
+    <color name="m3_on_error_container">#410002</color>
+    <color name="m3_outline_variant">#C5CAD6</color>
 </resources>

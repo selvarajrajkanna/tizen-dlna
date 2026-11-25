@@ -1,6 +1,8 @@
 package org.tizendlna.app.model;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
@@ -18,14 +20,14 @@ public final class MediaItem {
 
     private static final String[] SUB_EXTS = {"srt", "smi", "vtt", "ass", "ssa", "sub"};
 
-    private static final Set<String> VIDEO_EXTS = Set.of(
+    private static final Set<String> VIDEO_EXTS = new HashSet<>(Arrays.asList(
             "mkv", "mp4", "m4v", "webm", "mov", "ts", "m2ts", "mts",
             "avi", "wmv", "mpg", "mpeg", "flv", "3gp"
-    );
+    ));
 
-    private static final Set<String> AUDIO_EXTS = Set.of(
+    private static final Set<String> AUDIO_EXTS = new HashSet<>(Arrays.asList(
             "mp3", "flac", "m4a", "aac", "ogg", "opus", "wav", "wma"
-    );
+    ));
 
     public MediaItem(
             long id,

@@ -10,6 +10,7 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -102,7 +103,7 @@ public final class MainActivity extends Activity {
     private SeekBar seekBar;
     private Button btnPlayPause;
 
-    private OnBackInvokedCallback backCallback;
+    private Object backCallback; // OnBackInvokedCallback on API 33+
 
     private final Runnable statusPoller = new Runnable() {
         @Override
@@ -178,11 +179,20 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Android 16 edge-to-edge inset padding
+        // Edge-to-edge system bar inset padding (Android 10-16)
         View root = findViewById(R.id.root_container);
         root.setOnApplyWindowInsetsListener((v, insets) -> {
-            var bars = insets.getInsets(WindowInsets.Type.systemBars());
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                var bars = insets.getInsets(WindowInsets.Type.systemBars());
+                v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            } else {
+                v.setPadding(
+                        insets.getSystemWindowInsetLeft(),
+                        insets.getSystemWindowInsetTop(),
+                        insets.getSystemWindowInsetRight(),
+                        insets.getSystemWindowInsetBottom()
+                );
+            }
             return insets;
         });
 
@@ -252,14 +262,17 @@ public final class MainActivity extends Activity {
             }
         });
 
-        // Android 16 predictive back navigation: navigate up a folder before exiting
-        backCallback = () -> {
-            if (!navigateUp()) {
-                finish();
-            }
-        };
-        getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                OnBackInvokedDispatcher.PRIORITY_DEFAULT, backCallback);
+        // Predictive back navigation on Android 13-16 (onBackPressed handles Android 10-12)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            OnBackInvokedCallback cb = () -> {
+                if (!navigateUp()) {
+                    finish();
+                }
+            };
+            backCallback = cb;
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, cb);
+        }
 
         Intent svc = new Intent(this, DlnaServerService.class);
         startForegroundService(svc);
@@ -289,10 +302,18 @@ public final class MainActivity extends Activity {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
+    public void onBackPressed() {
+        if (!navigateUp()) {
+            super.onBackPressed();
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         mainHandler.removeCallbacks(statusPoller);
-        if (backCallback != null) {
-            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backCallback);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && backCallback instanceof OnBackInvokedCallback) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback((OnBackInvokedCallback) backCallback);
         }
         if (serviceBound) {
             if (serverService != null) serverService.setStateListener(null);
@@ -304,23 +325,51 @@ public final class MainActivity extends Activity {
     }
 
     private void requestNotificationPermission() {
-        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_PERMISSIONS);
+        List<String> needed = new ArrayList<>();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(Manifest.permission.POST_NOTIFICATIONS);
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R
+                && checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+        }
+        if (!needed.isEmpty()) {
+            requestPermissions(needed.toArray(new String[0]), REQ_PERMISSIONS);
         }
     }
 
+    private boolean hasStorageAccess() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager();
+        }
+        return checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+    }
+
     private void updatePermissionBanner() {
-        boolean hasAllFiles = Environment.isExternalStorageManager();
-        permissionBanner.setVisibility(hasAllFiles ? View.GONE : View.VISIBLE);
+        permissionBanner.setVisibility(hasStorageAccess() ? View.GONE : View.VISIBLE);
     }
 
     private void openAllFilesPermission() {
-        try {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-            intent.setData(Uri.parse("package:" + getPackageName()));
-            startActivity(intent);
-        } catch (Exception e) {
-            startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+            } catch (Exception e) {
+                startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+            }
+        } else {
+            requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, REQ_PERMISSIONS);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_PERMISSIONS) {
+            updatePermissionBanner();
+            openDirectory(currentDir != null ? currentDir : storageRoot);
         }
     }
 
@@ -442,9 +491,9 @@ public final class MainActivity extends Activity {
         fileList.setSelection(0);
 
         if (entries.isEmpty()) {
-            tvEmpty.setText(Environment.isExternalStorageManager()
+            tvEmpty.setText(hasStorageAccess()
                     ? "This folder is empty."
-                    : "Grant All Files Access above to browse storage folders.");
+                    : "Grant storage access above to browse folders.");
             tvEmpty.setVisibility(View.VISIBLE);
         } else {
             tvEmpty.setVisibility(View.GONE);
@@ -491,7 +540,13 @@ public final class MainActivity extends Activity {
         if (Intent.ACTION_VIEW.equals(action)) {
             uri = intent.getData();
         } else if (Intent.ACTION_SEND.equals(action)) {
-            uri = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                uri = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
+            } else {
+                @SuppressWarnings("deprecation")
+                Uri legacy = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                uri = legacy;
+            }
         }
         if (uri == null) return;
 

@@ -8,10 +8,10 @@ android {
 
     defaultConfig {
         applicationId = "org.tizendlna.app"
-        minSdk = 36
+        minSdk = 29
         targetSdk = 36
-        versionCode = 9
-        versionName = "1.2.0"
+        versionCode = 10
+        versionName = "1.3.0"
 
         // Strictly 64-bit ARM64 (Snapdragon 7+ Gen 3 / ARMv9-A Cortex-X4/A720/A520)
         ndk {

@@ -55,7 +55,7 @@ jobs:
             echo "WARNING: SIGNING_KEYSTORE_BASE64 secret not set; falling back to ephemeral debug key"
           fi
 
-      - name: Build release APK (Android 16 / arm64-v8a)
+      - name: Build release APK (Android 10-16 / arm64-v8a)
         env:
           KEYSTORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
@@ -78,7 +78,7 @@ jobs:
           mkdir -p dist
           APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
           test -n "$APK_PATH"
-          APK_NAME="TizenDLNA-${TAG}-arm64-v8a-android16.apk"
+          APK_NAME="TizenDLNA-${TAG}-arm64-v8a.apk"
           cp "$APK_PATH" "dist/${APK_NAME}"
           (cd dist && sha256sum "${APK_NAME}" > "${APK_NAME}.sha256")
 
@@ -100,7 +100,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TizenDLNA-${{ steps.meta.outputs.tag }}-arm64-v8a-android16
+          name: TizenDLNA-${{ steps.meta.outputs.tag }}-arm64-v8a
           path: |
             dist/*.apk
             dist/*.sha256
