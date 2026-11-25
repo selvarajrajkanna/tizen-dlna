@@ -49,7 +49,7 @@ public final class MainActivity extends Activity {
     private static final int REQ_PERMISSIONS = 101;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final ExecutorService bgExecutor = Executors.newSingleThreadExecutor(r -> {
+    private final ExecutorService bgExecutor = Executors.newFixedThreadPool(3, r -> {
         Thread t = new Thread(() -> {
             Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
             r.run();
