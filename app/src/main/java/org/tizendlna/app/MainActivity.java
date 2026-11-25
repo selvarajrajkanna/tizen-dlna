@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -15,6 +16,8 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Process;
+import android.provider.DocumentsContract;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -76,6 +79,7 @@ public final class MainActivity extends Activity {
     private FileAdapter fileAdapter;
 
     private MediaItem currentItem;
+    private MediaItem pendingSharedItem;
     private boolean isPlaying;
     private boolean userSeeking;
     private long currentDurationMs;
@@ -112,8 +116,12 @@ public final class MainActivity extends Activity {
                     TvController.PlaybackStatus st = TvController.pollStatus(tv);
                     mainHandler.post(() -> {
                         if (currentItem == null) return;
+                        boolean wasPlaying = isPlaying;
                         isPlaying = "PLAYING".equals(st.transportState) || "TRANSITIONING".equals(st.transportState);
                         btnPlayPause.setText(isPlaying ? "Pause" : "Play");
+                        if (wasPlaying != isPlaying && serverService != null) {
+                            serverService.updateCastingState(currentItem.title, isPlaying, currentItem.hasSubtitle());
+                        }
                         if (st.durationMs > 0) currentDurationMs = st.durationMs;
                         currentPositionMs = st.positionMs;
                         if (!userSeeking && currentDurationMs > 0) {
@@ -135,8 +143,26 @@ public final class MainActivity extends Activity {
         public void onServiceConnected(ComponentName name, IBinder binder) {
             serverService = ((DlnaServerService.LocalBinder) binder).getService();
             serviceBound = true;
+            serverService.setStateListener(new DlnaServerService.StateListener() {
+                @Override
+                public void onServerStateChanged(boolean running) {
+                    if (!running && currentItem != null) {
+                        mainHandler.removeCallbacks(statusPoller);
+                        currentItem = null;
+                        isPlaying = false;
+                        nowPlayingBar.setVisibility(View.GONE);
+                    }
+                    updateServerUi();
+                }
+
+                @Override
+                public void onTogglePlayPauseRequested() {
+                    togglePlayPause();
+                }
+            });
             updateServerUi();
             syncCurrentFolderToDms();
+            tryCastPendingSharedItem();
         }
 
         @Override
@@ -240,7 +266,15 @@ public final class MainActivity extends Activity {
         bindService(svc, serviceConnection, Context.BIND_AUTO_CREATE);
 
         requestNotificationPermission();
+        handleIncomingIntent(getIntent());
         scanTvs();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIncomingIntent(intent);
     }
 
     @Override
@@ -261,6 +295,7 @@ public final class MainActivity extends Activity {
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backCallback);
         }
         if (serviceBound) {
+            if (serverService != null) serverService.setStateListener(null);
             unbindService(serviceConnection);
             serviceBound = false;
         }
@@ -338,6 +373,7 @@ public final class MainActivity extends Activity {
             stopService(new Intent(this, DlnaServerService.class));
         }
         if (serviceBound) {
+            if (serverService != null) serverService.setStateListener(null);
             unbindService(serviceConnection);
             serviceBound = false;
         }
@@ -442,9 +478,79 @@ public final class MainActivity extends Activity {
                     }
                     tvSelectedTv.setText(selectedTv.displayLabel()
                             + (discoveredTvs.size() > 1 ? "  ▾" : ""));
+                    tryCastPendingSharedItem();
                 }
             });
         });
+    }
+
+    private void handleIncomingIntent(Intent intent) {
+        if (intent == null) return;
+        String action = intent.getAction();
+        Uri uri = null;
+        if (Intent.ACTION_VIEW.equals(action)) {
+            uri = intent.getData();
+        } else if (Intent.ACTION_SEND.equals(action)) {
+            uri = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
+        }
+        if (uri == null) return;
+
+        File resolved = resolveUriToFile(uri);
+        if (resolved == null || !resolved.isFile()) {
+            Toast.makeText(this, "Could not resolve file path (grant All Files Access)", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!MediaItem.isPlayableMedia(resolved)) {
+            Toast.makeText(this, "Only audio and video files can be cast", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        File parent = resolved.getParentFile();
+        if (parent != null && parent.isDirectory()) {
+            currentDir = parent;
+        }
+        pendingSharedItem = MediaItem.fromFile(resolved);
+        tryCastPendingSharedItem();
+    }
+
+    private void tryCastPendingSharedItem() {
+        if (pendingSharedItem == null) return;
+        if (selectedTv == null || serverService == null || !serverService.isServerRunning()) return;
+        MediaItem item = pendingSharedItem;
+        pendingSharedItem = null;
+        castMedia(item);
+    }
+
+    private File resolveUriToFile(Uri uri) {
+        if ("file".equalsIgnoreCase(uri.getScheme())) {
+            String path = uri.getPath();
+            return path != null ? new File(path) : null;
+        }
+        // Try MediaStore DATA column
+        try (Cursor c = getContentResolver().query(uri, new String[]{MediaStore.MediaColumns.DATA}, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                int idx = c.getColumnIndex(MediaStore.MediaColumns.DATA);
+                if (idx >= 0) {
+                    String path = c.getString(idx);
+                    if (path != null && !path.isEmpty()) {
+                        File f = new File(path);
+                        if (f.isFile()) return f;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        // Try primary external storage document ID (e.g. primary:Movies/clip.mkv)
+        try {
+            if (DocumentsContract.isDocumentUri(this, uri)) {
+                String docId = DocumentsContract.getDocumentId(uri);
+                if (docId != null && docId.startsWith("primary:")) {
+                    File f = new File(Environment.getExternalStorageDirectory(), docId.substring("primary:".length()));
+                    if (f.isFile()) return f;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     private static boolean containsTv(List<TvDevice> list, String udn) {
@@ -515,8 +621,7 @@ public final class MainActivity extends Activity {
                     currentVolume = vol;
                     btnPlayPause.setText("Pause");
                     if (serverService != null) {
-                        serverService.updateNotification("Casting: " + item.title
-                                + (item.hasSubtitle() ? " [SUB]" : ""));
+                        serverService.updateCastingState(item.title, true, item.hasSubtitle());
                     }
                     mainHandler.removeCallbacks(statusPoller);
                     mainHandler.postDelayed(statusPoller, 1000);
@@ -541,6 +646,9 @@ public final class MainActivity extends Activity {
                 mainHandler.post(() -> {
                     isPlaying = !pauseNow;
                     btnPlayPause.setText(isPlaying ? "Pause" : "Play");
+                    if (serverService != null && currentItem != null) {
+                        serverService.updateCastingState(currentItem.title, isPlaying, currentItem.hasSubtitle());
+                    }
                 });
             } catch (Exception ignored) {
             }
@@ -554,8 +662,7 @@ public final class MainActivity extends Activity {
         isPlaying = false;
         nowPlayingBar.setVisibility(View.GONE);
         if (serverService != null && serverService.isServerRunning()) {
-            TizenDlnaServer s = serverService.getServer();
-            serverService.updateNotification("Server running on " + s.getHostIp() + ":" + s.getPort());
+            serverService.updateCastingState(null, false, false);
         }
         if (tv != null) {
             bgExecutor.execute(() -> {

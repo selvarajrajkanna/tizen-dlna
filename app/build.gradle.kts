@@ -10,8 +10,8 @@ android {
         applicationId = "org.tizendlna.app"
         minSdk = 36
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.1.2"
+        versionCode = 9
+        versionName = "1.2.0"
 
         // Strictly 64-bit ARM64 (Snapdragon 7+ Gen 3 / ARMv9-A Cortex-X4/A720/A520)
         ndk {
