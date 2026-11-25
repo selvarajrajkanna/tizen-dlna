@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0E0F12"
+    android:orientation="vertical">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#151820"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="10dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="TizenDLNA"
+                android:textColor="#F2F4F8"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_server_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Starting DLNA server..."
+                android:textColor="#7D8798"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btn_scan_tv"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="Scan TVs"
+            android:textAllCaps="false"
+            android:textColor="#6BA6FF"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/btn_refresh"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="Refresh"
+            android:textAllCaps="false"
+            android:textColor="#C5CCD8"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <!-- Selected TV bar -->
+    <TextView
+        android:id="@+id/tv_selected_tv"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#1B202C"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:paddingStart="16dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="10dp"
+        android:text="Scanning Wi-Fi for Samsung TVs..."
+        android:textColor="#9BC2FF"
+        android:textSize="14sp" />
+
+    <!-- All-files permission banner (for same-folder .srt subtitle access on Android 16) -->
+    <LinearLayout
+        android:id="@+id/permission_banner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#2A2212"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Allow All Files Access so same-folder .srt subtitles auto-load."
+            android:textColor="#F5D08A"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/btn_grant_files"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="Allow"
+            android:textAllCaps="false"
+            android:textColor="#FFD166"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Empty hint -->
+    <TextView
+        android:id="@+id/tv_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:padding="32dp"
+        android:text="No local videos found.\nGrant video/file access and tap Refresh."
+        android:textColor="#7D8798"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+    <!-- Video list -->
+    <ListView
+        android:id="@+id/video_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:divider="#1D222E"
+        android:dividerHeight="1dp"
+        android:fastScrollEnabled="true" />
+
+    <!-- Now Playing controller -->
+    <LinearLayout
+        android:id="@+id/now_playing_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#151820"
+        android:orientation="vertical"
+        android:paddingStart="14dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tv_now_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#F2F4F8"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tv_now_sub"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#6FE3A1"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:00 / 0:00"
+                android:textColor="#9AA3B2"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <SeekBar
+            android:id="@+id/seek_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_rew"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="-15s"
+                android:textAllCaps="false"
+                android:textColor="#D0D7E2"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_play_pause"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1.2"
+                android:text="Pause"
+                android:textAllCaps="false"
+                android:textColor="#6BA6FF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btn_fwd"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="+15s"
+                android:textAllCaps="false"
+                android:textColor="#D0D7E2"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_stop"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="Stop"
+                android:textAllCaps="false"
+                android:textColor="#FF7A7A"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_vol_down"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="0.8"
+                android:text="V-"
+                android:textAllCaps="false"
+                android:textColor="#9AA3B2"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_vol_up"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="0.8"
+                android:text="V+"
+                android:textAllCaps="false"
+                android:textColor="#9AA3B2"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
