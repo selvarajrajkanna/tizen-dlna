@@ -402,9 +402,10 @@ public final class TizenDlnaServer {
     }
 
     private void appendDidlItem(StringBuilder sb, MediaItem item, String vUrl, String title, String dur, String proto) {
+        String upnpClass = item.isAudio ? "object.item.audioItem.musicTrack" : "object.item.videoItem.movie";
         sb.append("<item id=\"").append(item.id).append("\" parentID=\"0\" restricted=\"1\">")
           .append("<dc:title>").append(title).append("</dc:title>")
-          .append("<upnp:class>object.item.videoItem.movie</upnp:class>")
+          .append("<upnp:class>").append(upnpClass).append("</upnp:class>")
           .append("<res protocolInfo=\"").append(proto).append("\" ")
           .append("size=\"").append(item.sizeBytes).append("\" ")
           .append("duration=\"").append(dur).append("\">")

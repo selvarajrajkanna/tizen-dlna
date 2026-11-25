@@ -2,45 +2,109 @@ package org.tizendlna.app.model;
 
 import java.io.File;
 import java.util.Locale;
+import java.util.Set;
 
 public final class MediaItem {
     public final long id;
-    public final File videoFile;
+    public final File videoFile; // Media file (video or audio)
     public final String title;
     public final String folderName;
     public final long sizeBytes;
     public final long durationMs;
     public final String mimeType;
+    public final boolean isAudio;
     public final File subtitleFile;
     public final String subtitleType; // e.g. "srt", "smi", "ass", "vtt"
 
+    private static final String[] SUB_EXTS = {"srt", "smi", "vtt", "ass", "ssa", "sub"};
+
+    private static final Set<String> VIDEO_EXTS = Set.of(
+            "mkv", "mp4", "m4v", "webm", "mov", "ts", "m2ts", "mts",
+            "avi", "wmv", "mpg", "mpeg", "flv", "3gp"
+    );
+
+    private static final Set<String> AUDIO_EXTS = Set.of(
+            "mp3", "flac", "m4a", "aac", "ogg", "opus", "wav", "wma"
+    );
+
     public MediaItem(
             long id,
-            File videoFile,
+            File mediaFile,
             String title,
             String folderName,
             long sizeBytes,
             long durationMs,
             String mimeType,
+            boolean isAudio,
             File subtitleFile,
             String subtitleType
     ) {
         this.id = id;
-        this.videoFile = videoFile;
+        this.videoFile = mediaFile;
         this.title = title;
         this.folderName = folderName;
         this.sizeBytes = sizeBytes;
         this.durationMs = durationMs;
         this.mimeType = mimeType;
+        this.isAudio = isAudio;
         this.subtitleFile = subtitleFile;
         this.subtitleType = subtitleType;
     }
 
-    public boolean hasSubtitle() {
-        return subtitleFile != null && subtitleFile.isFile() && subtitleFile.canRead();
+    public static MediaItem fromFile(File file) {
+        boolean audio = isAudioFile(file.getName());
+        File sub = audio ? null : findMatchingSubtitle(file);
+        String subType = sub != null ? subtitleTypeOf(sub) : "";
+        File parent = file.getParentFile();
+        String folder = parent != null ? parent.getName() : "Storage";
+        return new MediaItem(
+                stableIdForPath(file.getAbsolutePath()),
+                file,
+                file.getName(),
+                folder,
+                file.length(),
+                0L,
+                dlnaMimeForFile(file),
+                audio,
+                sub,
+                subType
+        );
     }
 
-    private static final String[] SUB_EXTS = {"srt", "smi", "vtt", "ass", "ssa", "sub"};
+    public boolean hasSubtitle() {
+        return !isAudio && subtitleFile != null && subtitleFile.isFile() && subtitleFile.canRead();
+    }
+
+    public static boolean isVideoFile(String name) {
+        String ext = extensionOf(name);
+        return !ext.isEmpty() && VIDEO_EXTS.contains(ext);
+    }
+
+    public static boolean isAudioFile(String name) {
+        String ext = extensionOf(name);
+        return !ext.isEmpty() && AUDIO_EXTS.contains(ext);
+    }
+
+    public static boolean isPlayableMedia(File file) {
+        if (file == null || !file.isFile()) return false;
+        String name = file.getName();
+        return isVideoFile(name) || isAudioFile(name);
+    }
+
+    public static String extensionOf(String name) {
+        if (name == null) return "";
+        int dot = name.lastIndexOf('.');
+        if (dot <= 0 || dot == name.length() - 1) return "";
+        return name.substring(dot + 1).toLowerCase(Locale.ROOT);
+    }
+
+    public static long stableIdForPath(String path) {
+        long h = 1125899906842597L;
+        for (int i = 0; i < path.length(); i++) {
+            h = 31L * h + path.charAt(i);
+        }
+        return (h & 0x7FFF_FFFF_FFFF_FFFFL) | 1L;
+    }
 
     /**
      * Finds a matching subtitle in the exact same directory as {@code videoFile}.
@@ -116,25 +180,31 @@ public final class MediaItem {
 
     public static String subtitleTypeOf(File subFile) {
         if (subFile == null) return "";
-        String fn = subFile.getName();
-        int dot = fn.lastIndexOf('.');
-        if (dot <= 0 || dot == fn.length() - 1) return "srt";
-        return fn.substring(dot + 1).toLowerCase(Locale.ROOT);
+        String ext = extensionOf(subFile.getName());
+        return ext.isEmpty() ? "srt" : ext;
     }
 
-    public static String dlnaMimeForVideo(File file) {
-        String name = file.getName().toLowerCase(Locale.ROOT);
-        if (name.endsWith(".mkv")) return "video/x-matroska";
-        if (name.endsWith(".mp4") || name.endsWith(".m4v")) return "video/mp4";
-        if (name.endsWith(".webm")) return "video/webm";
-        if (name.endsWith(".mov")) return "video/quicktime";
-        if (name.endsWith(".ts") || name.endsWith(".m2ts") || name.endsWith(".mts")) return "video/MP2T";
-        if (name.endsWith(".avi")) return "video/x-msvideo";
-        if (name.endsWith(".wmv")) return "video/x-ms-wmv";
-        if (name.endsWith(".mpg") || name.endsWith(".mpeg")) return "video/mpeg";
-        if (name.endsWith(".flv")) return "video/x-flv";
-        if (name.endsWith(".3gp")) return "video/3gpp";
-        return "video/mp4";
+    public static String dlnaMimeForFile(File file) {
+        String ext = extensionOf(file.getName());
+        return switch (ext) {
+            case "mkv" -> "video/x-matroska";
+            case "mp4", "m4v" -> "video/mp4";
+            case "webm" -> "video/webm";
+            case "mov" -> "video/quicktime";
+            case "ts", "m2ts", "mts" -> "video/MP2T";
+            case "avi" -> "video/x-msvideo";
+            case "wmv" -> "video/x-ms-wmv";
+            case "mpg", "mpeg" -> "video/mpeg";
+            case "flv" -> "video/x-flv";
+            case "3gp" -> "video/3gpp";
+            case "mp3" -> "audio/mpeg";
+            case "flac" -> "audio/flac";
+            case "m4a", "aac" -> "audio/mp4";
+            case "ogg", "opus" -> "audio/ogg";
+            case "wav" -> "audio/wav";
+            case "wma" -> "audio/x-ms-wma";
+            default -> "application/octet-stream";
+        };
     }
 
     public static String dlnaMimeForSubtitle(String subType) {
